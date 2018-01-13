@@ -30,7 +30,7 @@ val generator: Gen[String] = RegexpGen.from("[1-9]\\d?(,\\d{3})+")
 | Default Classes   | `\w`, `\d`, `\S`, `.`                       | These are treated as predefined character classes                            |
 | Quantifiers       | `a?`, `b+`, `c*`, `d{3}`, `e{4,5}`, `f{5,}` | These use `Gen.listOfN` to create sized lists of the preceding term          |
 | Groups            | `(abc)`, `(?:def)`                          | Backreferences are not supported, groups can only be used for grouping terms |
-| Alternates        | `abc`, `a(bc)d`                             | Alternates are also transformed with `Gen.oneOf`                             |
+| Alternates        | `a\|b\|c`, `a(b\|c)d`                             | Alternates are also transformed with `Gen.oneOf`                             |
 | Boundaries        | `^`, `$`, `\b`                              | Although these will be parsed they do not modify the generator output        |
 
 ##### Unsupported syntax
