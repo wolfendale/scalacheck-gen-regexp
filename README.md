@@ -10,6 +10,8 @@ Cross-built for Scala 2.11/2.12
 
 In your `build.sbt`
 ```scala
+resolvers += Resolver.bintrayRepo("wolfendale", "maven")
+
 libraryDependencies += "wolfendale" %% "scalacheck-gen-regexp" % "[VERSION]"
 ```
 
