@@ -2,7 +2,7 @@ package wolfendale.scalacheck.regexp
 
 import org.scalacheck.{Arbitrary, Gen}
 
-object RegexGen {
+object RegexpGen {
 
   def from(str: String)(implicit ev: Arbitrary[Char]): Gen[String] = {
     ASTProcessor(GenParser.parse(str))
