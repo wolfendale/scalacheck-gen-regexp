@@ -18,7 +18,7 @@ libraryDependencies += "wolfendale" %% "scalacheck-gen-regexp" % "[VERSION]"
 ##### Quick start
 
 ```scala
-import wolfendale.scalacheck.regexp.RegexGen
+import wolfendale.scalacheck.regexp.RegexpGen
 
 val generator: Gen[String] = RegexpGen.from("[1-9]\\d?(,\\d{3})+")
 ```
