@@ -98,8 +98,9 @@ object GenParser extends RegexParsers with PackratParsers {
     val wordBoundary: Parser[CharacterClass.Term] = "\\b" ^^^ CharacterClass.WordBoundary
 
     lazy val char: Parser[CharacterClass.Term] = {
-      val meta = "\\" | "]"
-      (("\\" ~> meta) | "[^\\]\\\\]".r) ^^ CharacterClass.Literal
+      val normalChars = "[^\\]\\\\]".r
+      val meta = "\\" | "]" | "-"
+      (("\\" ~> meta) | normalChars | "\\" ~> normalChars) ^^ CharacterClass.Literal
     }
 
     lazy val characterClassTerm: Parser[CharacterClass.Term] =

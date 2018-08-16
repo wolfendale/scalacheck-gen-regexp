@@ -34,5 +34,17 @@ class RegexpGenSpec extends WordSpec with MustMatchers with PropertyChecks {
           str must fullyMatch regex r
       }
     }
+
+    "create a valid generator from `^[a-zA-Z &`\\-\\'\\.]{1,35}$`" in {
+
+      val r = "^[a-zA-Z &`\\-\\'\\.]{1,35}$"
+      val gen = RegexpGen.from(r)
+
+      forAll(gen) {
+        str =>
+          println(str)
+          str must fullyMatch regex r
+      }
+    }
   }
 }
