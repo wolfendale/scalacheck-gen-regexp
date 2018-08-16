@@ -1,5 +1,7 @@
 [![Build Status](https://travis-ci.org/wolfendale/scalacheck-gen-regexp.svg?branch=master)](https://travis-ci.org/wolfendale/scalacheck-gen-regexp)
 
+[ ![Download](https://api.bintray.com/packages/wolfendale/maven/scalacheck-gen-regexp/images/download.svg) ](https://bintray.com/wolfendale/maven/scalacheck-gen-regexp/_latestVersion)
+
 # scalacheck-gen-regexp
 
 A library for creating [scalacheck](https://www.scalacheck.org/) generators from regular expressions
