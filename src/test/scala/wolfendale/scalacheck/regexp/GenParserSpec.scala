@@ -3,7 +3,7 @@ package wolfendale.scalacheck.regexp
 import org.scalacheck.{Gen, Shrink}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{MustMatchers, WordSpec}
-import ast.{CharacterClass, _}
+import ast._
 
 class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
 
