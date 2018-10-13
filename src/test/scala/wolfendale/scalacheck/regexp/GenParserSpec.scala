@@ -3,7 +3,7 @@ package wolfendale.scalacheck.regexp
 import org.scalacheck.{Gen, Shrink}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{MustMatchers, WordSpec}
-import ast._
+import ast.{CharacterClass, _}
 
 class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
 
@@ -337,6 +337,12 @@ class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
 
     "parse a negated character class" in {
       GenParser.parse("[^abc]") mustEqual Negated(CharacterClass(CharacterClass.Literal("a"), CharacterClass.Literal("b"), CharacterClass.Literal("c")))
+    }
+
+    "parse input containing EOS character" in {
+      forAll(neAlphaNum) { a =>
+        GenParser.parse(a + "$") mustEqual And(Literal(a), EOS)
+      }
     }
   }
 }

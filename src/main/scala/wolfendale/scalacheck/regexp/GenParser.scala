@@ -142,7 +142,7 @@ object GenParser extends RegexParsers with PackratParsers {
   lazy val regularExpression: Parser[RegularExpression] = {
     bos ~> expression <~ eos ^^ { expr => And(And(BOS, expr), EOS) } |
     bos ~> expression        ^^ { expr => And(BOS, expr) } |
-    expression ~> eos        ^^ { expr => And(expr, EOS) } |
+    expression <~ eos        ^^ { expr => And(expr, EOS) } |
     expression
   }
 
