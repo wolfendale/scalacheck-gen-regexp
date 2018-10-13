@@ -341,12 +341,12 @@ class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
 
     "parse a character class intersection" in {
       GenParser.parse("[a&&b]") mustEqual
-        CharacterClass(CharacterClass.Intersection(CharacterClass.Literal("a"), CharacterClass(CharacterClass.Literal("b"))))
+        CharacterClass(CharacterClass.Intersection(CharacterClass.Literal("a"), CharacterClass(CharacterClass.Literal("b")), Nil))
     }
 
     "parse a nested character class intersection" in {
       GenParser.parse("[a&&[b]]") mustEqual
-        CharacterClass(CharacterClass.Intersection(CharacterClass.Literal("a"), CharacterClass(CharacterClass.Literal("b"))))
+        CharacterClass(CharacterClass.Intersection(CharacterClass.Literal("a"), CharacterClass(CharacterClass.Literal("b")), Nil))
     }
 
     "parse multiple nested character class intersections" in {
@@ -354,7 +354,7 @@ class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
         CharacterClass(CharacterClass.Intersection(
           CharacterClass.Literal("a"),
           CharacterClass(CharacterClass.Literal("b")),
-          CharacterClass(CharacterClass.Literal("c"))))
+          List(CharacterClass(CharacterClass.Literal("c")))))
     }
   }
 }

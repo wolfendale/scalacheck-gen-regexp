@@ -117,6 +117,8 @@ object ASTProcessor {
         spaceChar
       case CharacterClass.DigitChar =>
         digitChar
+      case term@CharacterClass.Intersection(_, _, _) =>
+        Gen.oneOf(CharacterClass.toSet(term).map(_.toString).toList)
       case _ =>
         Gen.const("")
     }

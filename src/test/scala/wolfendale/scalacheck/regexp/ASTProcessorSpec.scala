@@ -377,5 +377,19 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
           }
       }
     }
+
+    "generate a character class with an intersection" in {
+
+      val genGen: Gen[String] = ASTProcessor.apply(CharacterClass(
+        CharacterClass.Intersection(
+          CharacterClass.CharRange('a', 'z'),
+          CharacterClass(CharacterClass.CharRange('b', 'y')),
+          List(CharacterClass(CharacterClass.WordChar))))
+      )
+
+      forAll(genGen) { str =>
+        str must fullyMatch regex "[a-z&&[b-y]&&[\\w]]"
+      }
+    }
   }
 }

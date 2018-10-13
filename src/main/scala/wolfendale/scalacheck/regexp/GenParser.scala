@@ -121,7 +121,7 @@ object GenParser extends RegexParsers with PackratParsers {
     lazy val intersections: Parser[CharacterClass] =
       "[" ~ characterClassTerm ~ intersections1 ~ "]" ^^ {
         case _ ~ left ~ ((right, remaining)) ~ _ =>
-          CharacterClass(CharacterClass.Intersection(left, right, remaining: _*))
+          CharacterClass(CharacterClass.Intersection(left, right, remaining))
       }
 
     lazy val charClass =

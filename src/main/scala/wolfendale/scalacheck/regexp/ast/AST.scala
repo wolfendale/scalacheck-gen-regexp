@@ -51,7 +51,31 @@ object CharacterClass {
   case object SpaceChar extends Term
   case object WordBoundary extends Term
 
-  case class Intersection(left: Term, right: CharacterClass, remaining: CharacterClass*) extends Term
+  case class Intersection(left: Term, right: CharacterClass, remaining: List[CharacterClass]) extends Term
+
+  private lazy val all: Set[Char] = (for { c <- Char.MinValue to Char.MaxValue } yield c).toSet
+
+  def toSet(term: Term): Set[Char] =
+    term match {
+      case Literal(value) => value.headOption.map(Set(_)).getOrElse(Set())
+      case DigitRange(min, max) => (for { i <- min to max } yield i.toChar).toSet
+      case CharRange(min, max) => (for { c <- min to max } yield c.toChar).toSet
+      case WordChar =>
+        toSet(Literal("_")) union
+          toSet(CharRange('a', 'z')) union
+          toSet(CharRange('A', 'Z')) union
+          toSet(DigitRange(0, 9))
+      case DigitChar => toSet(DigitRange(0, 9))
+      case SpaceChar => Set(' ', '\t')
+      case WordBoundary => all diff toSet(WordChar)
+      case Intersection(left, right, remaining) =>
+        toSet(left) intersect
+          toSet(right) intersect
+          remaining.map(toSet).foldLeft(Set[Char]())(_ ++ _)
+    }
+
+  def toSet(charClass: CharacterClass): Set[Char] =
+    charClass.terms.map(toSet).foldLeft(Set[Char]())(_ ++ _)
 }
 
 case class CharacterClass(terms: CharacterClass.Term*) extends RegularExpression
