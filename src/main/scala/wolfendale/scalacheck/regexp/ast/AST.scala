@@ -50,6 +50,8 @@ object CharacterClass {
   case object DigitChar extends Term
   case object SpaceChar extends Term
   case object WordBoundary extends Term
+
+  case class Intersection(left: Term, right: CharacterClass, remaining: CharacterClass*) extends Term
 }
 
 case class CharacterClass(terms: CharacterClass.Term*) extends RegularExpression

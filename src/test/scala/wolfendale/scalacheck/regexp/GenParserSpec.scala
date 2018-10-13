@@ -338,5 +338,23 @@ class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
     "parse a negated character class" in {
       GenParser.parse("[^abc]") mustEqual Negated(CharacterClass(CharacterClass.Literal("a"), CharacterClass.Literal("b"), CharacterClass.Literal("c")))
     }
+
+    "parse a character class intersection" in {
+      GenParser.parse("[a&&b]") mustEqual
+        CharacterClass(CharacterClass.Intersection(CharacterClass.Literal("a"), CharacterClass(CharacterClass.Literal("b"))))
+    }
+
+    "parse a nested character class intersection" in {
+      GenParser.parse("[a&&[b]]") mustEqual
+        CharacterClass(CharacterClass.Intersection(CharacterClass.Literal("a"), CharacterClass(CharacterClass.Literal("b"))))
+    }
+
+    "parse multiple nested character class intersections" in {
+      GenParser.parse("[a&&[b]&&[c]]") mustEqual
+        CharacterClass(CharacterClass.Intersection(
+          CharacterClass.Literal("a"),
+          CharacterClass(CharacterClass.Literal("b")),
+          CharacterClass(CharacterClass.Literal("c"))))
+    }
   }
 }

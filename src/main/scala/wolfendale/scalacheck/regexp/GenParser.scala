@@ -106,12 +106,30 @@ object GenParser extends RegexParsers with PackratParsers {
     lazy val characterClassTerm: Parser[CharacterClass.Term] =
       word | digit | space | wordBoundary | digitRange | lowerAlphaRange | upperAlphaRange | char
 
+    lazy val classOrTerm: Parser[CharacterClass] =
+      (characterClass | characterClassTerm) ^^ {
+        case x: CharacterClass => x
+        case x: CharacterClass.Term => CharacterClass(x)
+      }
+
+    lazy val classOrTerms1: Parser[(CharacterClass, List[CharacterClass])] =
+      "&&" ~> rep1sep(classOrTerm, "&&") ^^ {
+        case x :: ys => (x, ys)
+        case _ => sys.error("Unreachable code reached")
+      }
+
+    lazy val intersection: Parser[CharacterClass] =
+      "[" ~ characterClassTerm ~ classOrTerms1 ~ "]" ^^ {
+        case _ ~ left ~ ((right, remaining)) ~ _ =>
+          CharacterClass(CharacterClass.Intersection(left, right, remaining: _*))
+      }
+
     lazy val charClass =
       ("[" ~> characterClassTerm.+ <~ "]") ^^ { CharacterClass(_: _*) }
     lazy val negatedCharClass =
       ("[^" ~> characterClassTerm.+ <~ "]") ^^ { terms => Negated(CharacterClass(terms: _*)) }
 
-    negatedCharClass | charClass
+    intersection | negatedCharClass | charClass
   }
 
   // terminals...
