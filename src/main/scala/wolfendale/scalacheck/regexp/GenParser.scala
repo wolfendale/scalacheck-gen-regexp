@@ -3,6 +3,7 @@ package wolfendale.scalacheck.regexp
 import scala.util.parsing.combinator.{PackratParsers, RegexParsers}
 import scala.util.parsing.input.CharSequenceReader
 import ast._
+import wolfendale.scalacheck.regexp.ast.CharacterClass.Intersection
 
 object GenParser extends RegexParsers with PackratParsers {
 
@@ -66,7 +67,7 @@ object GenParser extends RegexParsers with PackratParsers {
 
 
   // character classes
-  lazy val characterClass: PackratParser[RegularExpression] = {
+  lazy val characterClass: PackratParser[CharacterClass] = {
 
     lazy val digitRange: Parser[CharacterClass.Term] = {
       val d: Parser[Int] = "\\d".r ^^ { _.toInt }
@@ -106,30 +107,26 @@ object GenParser extends RegexParsers with PackratParsers {
     lazy val characterClassTerm: Parser[CharacterClass.Term] =
       word | digit | space | wordBoundary | digitRange | lowerAlphaRange | upperAlphaRange | char
 
+    lazy val characterClassTerms: Parser[List[CharacterClass.Term]] = {
+      (classOrTerm ~ "&&" ~ repsep(classOrTerm, "&&")) ^^ {
+        case x ~ _ ~ xs =>
+          Intersection(x :: xs: _*)
+      } | characterClassTerm
+    }.+
+
     lazy val classOrTerm: Parser[CharacterClass] =
-      (characterClass | characterClassTerm) ^^ {
-        case x: CharacterClass => x
+      (negatedCharClass | charClass | characterClassTerm) ^^ {
+        case x: CharacterClass      => x
         case x: CharacterClass.Term => CharacterClass(x)
       }
 
-    lazy val intersections1: Parser[(CharacterClass, List[CharacterClass])] =
-      "&&" ~> rep1sep(classOrTerm, "&&") ^^ {
-        case x :: ys => (x, ys)
-        case _ => sys.error("Unreachable code reached")
-      }
+    lazy val charClass: Parser[CharacterClass] =
+      ("[" ~> characterClassTerms <~ "]") ^^ { CharacterClass(_: _*) }
 
-    lazy val intersections: Parser[CharacterClass] =
-      "[" ~ characterClassTerm ~ intersections1 ~ "]" ^^ {
-        case _ ~ left ~ ((right, remaining)) ~ _ =>
-          CharacterClass(CharacterClass.Intersection(left, right, remaining))
-      }
+    lazy val negatedCharClass: Parser[CharacterClass] =
+      ("[^" ~> characterClassTerms <~ "]") ^^ { terms => CharacterClass.Negated(terms: _*) }
 
-    lazy val charClass =
-      ("[" ~> characterClassTerm.+ <~ "]") ^^ { CharacterClass(_: _*) }
-    lazy val negatedCharClass =
-      ("[^" ~> characterClassTerm.+ <~ "]") ^^ { terms => Negated(CharacterClass(terms: _*)) }
-
-    intersections | negatedCharClass | charClass
+    negatedCharClass | charClass
   }
 
   // terminals...

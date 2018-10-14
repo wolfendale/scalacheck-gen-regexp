@@ -39,8 +39,6 @@ object ASTProcessor {
         arbitraryString.suchThat(_.matches("\\S"))
       case Negated(WordBoundary) =>
         Gen.const("")
-      case Negated(CharacterClass(terms @ _*)) =>
-        arbitraryString.suchThat(_.matches(s"[^${terms.map(termToString).mkString("")}]"))
         // TODO fix AST so that this isn't a valid construction
       case _ =>
         sys.error("invalid negated term")
@@ -91,7 +89,7 @@ object ASTProcessor {
         } yield list.mkString("")
       case Length(inner, length) =>
         Gen.listOfN(length, apply(inner)).map(_.mkString(""))
-      case CharacterClass(terms@_*) =>
+      case CharacterClass.Complete(terms @ _*) =>
         processClass(terms)
       case term: Negated =>
         negated(term)
@@ -117,7 +115,7 @@ object ASTProcessor {
         spaceChar
       case CharacterClass.DigitChar =>
         digitChar
-      case term@CharacterClass.Intersection(_, _, _) =>
+      case term: CharacterClass.Intersection =>
         Gen.oneOf(CharacterClass.toSet(term).map(_.toString).toList)
       case _ =>
         Gen.const("")

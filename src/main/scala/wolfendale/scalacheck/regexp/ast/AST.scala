@@ -39,7 +39,10 @@ case class Range(term: RegularExpression, min: Int, max: Int) extends Quantified
 
 object CharacterClass {
 
-  sealed trait Term
+  sealed trait Term extends RegularExpression
+
+  case class Complete(terms: CharacterClass.Term*) extends CharacterClass
+  case class Negated(terms: CharacterClass.Term*) extends CharacterClass
 
   case class Literal(value: String) extends Term
 
@@ -51,7 +54,7 @@ object CharacterClass {
   case object SpaceChar extends Term
   case object WordBoundary extends Term
 
-  case class Intersection(left: Term, right: CharacterClass, remaining: List[CharacterClass]) extends Term
+  case class Intersection(classes: CharacterClass*) extends Term
 
   private lazy val all: Set[Char] = (for { c <- Char.MinValue to Char.MaxValue } yield c).toSet
 
@@ -68,15 +71,19 @@ object CharacterClass {
       case DigitChar => toSet(DigitRange(0, 9))
       case SpaceChar => Set(' ', '\t')
       case WordBoundary => all diff toSet(WordChar)
-      case Intersection(left, right, remaining) =>
-        toSet(left) intersect
-          toSet(right) intersect
-          remaining.map(toSet).foldLeft(Set[Char]())(_ ++ _)
+      case Intersection(terms @ _*) =>
+        terms.map(toSet).reduce(_ intersect _)
+//        toSet(left) intersect toSet(right)
     }
 
   def toSet(charClass: CharacterClass): Set[Char] =
     charClass.terms.map(toSet).foldLeft(Set[Char]())(_ ++ _)
+
+  def apply(terms: CharacterClass.Term*): CharacterClass =
+    CharacterClass.Complete(terms: _*)
 }
 
-case class CharacterClass(terms: CharacterClass.Term*) extends RegularExpression
+sealed trait CharacterClass extends CharacterClass.Term {
+  def terms: Seq[CharacterClass.Term]
+}
 

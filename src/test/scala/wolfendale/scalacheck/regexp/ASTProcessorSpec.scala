@@ -270,7 +270,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
         literal =>
 
           val gen: Gen[String] =
-            ASTProcessor.apply(CharacterClass(CharacterClass.Literal(literal)))
+            ASTProcessor.apply(CharacterClass.Complete(CharacterClass.Literal(literal)))
 
           forAll(gen) {
             str =>
@@ -282,7 +282,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a character class which behaves like an alternation" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(CharacterClass(CharacterClass.Literal("a"), CharacterClass.Literal("b")))
+        ASTProcessor.apply(CharacterClass.Complete(CharacterClass.Literal("a"), CharacterClass.Literal("b")))
 
       forAll(gen) {
         str =>
@@ -382,9 +382,8 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
 
       val genGen: Gen[String] = ASTProcessor.apply(CharacterClass(
         CharacterClass.Intersection(
-          CharacterClass.CharRange('a', 'z'),
-          CharacterClass(CharacterClass.CharRange('b', 'y')),
-          List(CharacterClass(CharacterClass.WordChar))))
+          CharacterClass(CharacterClass.CharRange('a', 'z')),
+          CharacterClass(CharacterClass.CharRange('b', 'y'))))
       )
 
       forAll(genGen) { str =>
