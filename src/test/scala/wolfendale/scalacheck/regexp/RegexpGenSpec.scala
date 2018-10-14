@@ -46,5 +46,17 @@ class RegexpGenSpec extends WordSpec with MustMatchers with PropertyChecks {
           str must fullyMatch regex r
       }
     }
+
+    "create a valid generator with backreferences" in {
+
+      val r = "(asdf|fdsa)\\1"
+      val gen = RegexpGen.from(r)
+
+      forAll(gen) {
+        str =>
+          println(str)
+          str must fullyMatch regex r
+      }
+    }
   }
 }

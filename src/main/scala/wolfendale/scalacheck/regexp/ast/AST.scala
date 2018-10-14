@@ -20,7 +20,7 @@ case object BOS extends RegularExpression
 case object EOS extends RegularExpression
 case object WordBoundary extends RegularExpression
 
-case class Group(term: RegularExpression) extends RegularExpression
+case class Group(term: RegularExpression, rest: Option[RegularExpression] = None) extends RegularExpression
 case class Substitution(index: Int) extends RegularExpression
 case class NonCapturingGroup(term: RegularExpression) extends RegularExpression
 

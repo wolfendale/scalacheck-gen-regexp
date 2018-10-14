@@ -187,14 +187,14 @@ class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
     "parse a group with an alternate in it" in {
       forAll(neAlphaNum, neAlphaNum, neAlphaNum, neAlphaNum) {
         case (a, b, c, d) =>
-          GenParser.parse(s"$a($b|$c)$d") mustEqual And(And(Literal(a), Group(Literal(b) | Literal(c))), Literal(d))
+          GenParser.parse(s"$a($b|$c)$d") mustEqual And(Literal(a), Group(Literal(b) | Literal(c), Some(Literal(d))))
       }
     }
 
     "parse a nested group with an expression to the right" in {
       forAll(neAlphaNum, neAlphaNum) {
         case (a, b) =>
-          GenParser.parse(s"(($a)$b)") mustEqual Group(And(Group(Literal(a)), Literal(b)))
+          GenParser.parse(s"(($a)$b)") mustEqual Group(Group(Literal(a), Some(Literal(b))))
       }
     }
 
@@ -316,7 +316,7 @@ class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
     }
 
     "parse substitutions" in {
-      GenParser.parse("(a)\\1") mustEqual And(Group(Literal("a")), Substitution(1))
+      GenParser.parse("(a)\\1") mustEqual Group(Literal("a"), Some(Substitution(0)))
     }
 
     "parse a negated word char" in {

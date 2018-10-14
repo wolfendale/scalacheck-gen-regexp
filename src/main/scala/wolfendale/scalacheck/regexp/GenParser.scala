@@ -59,7 +59,10 @@ object GenParser extends RegexParsers with PackratParsers {
   lazy val group: PackratParser[RegularExpression] = {
 
     lazy val nonCapturingGroup = "(?:" ~> expression <~ ")" ^^ NonCapturingGroup
-    lazy val capturingGroup    = "(" ~> expression <~ ")" ^^ Group
+    lazy val capturingGroup    = "(" ~> expression ~ ")" ~ opt(expression) ^^ {
+      case captured ~ _ ~ rest =>
+        Group(captured, rest)
+    }
 
     capturingGroup | nonCapturingGroup
   }
@@ -133,7 +136,7 @@ object GenParser extends RegexParsers with PackratParsers {
 
   lazy val substitution: Parser[RegularExpression] = "\\" ~> "[1-9]\\d*".r  ^^ {
     index =>
-      Substitution(index.toInt)
+      Substitution(index.toInt - 1)
   }
 
   lazy val bos: Parser[RegularExpression] = "^" ^^^ BOS

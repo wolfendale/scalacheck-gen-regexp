@@ -47,58 +47,101 @@ object ASTProcessor {
     }
   }
 
+  def apply(re: RegularExpression)(implicit ev: Arbitrary[Char]): Gen[String] =
+    app(re).apply(Map.empty).map(_._1)
+
   // TODO tailrec optimisation
-  def apply(re: RegularExpression)(implicit ev: Arbitrary[Char]): Gen[String] = {
+  private def app(re: RegularExpression)(implicit ev: Arbitrary[Char]): Map[Int, String] => Gen[(String, Map[Int, String])] = {
 
     re match {
       case Literal(str) =>
-        literal(str)
+        refs =>
+          literal(str).map(_ -> refs)
       case WordChar =>
-        wordChar
+        refs =>
+          wordChar.map(_ -> refs)
       case SpaceChar =>
-        spaceChar
+        refs =>
+          spaceChar.map(_ -> refs)
       case DigitChar =>
-        digitChar
+        refs =>
+          digitChar.map(_ -> refs)
       case AnyChar =>
-        Arbitrary.arbitrary[Char].map(_.toString)
-      case Group(inner) =>
-        apply(inner)
+        refs =>
+          Arbitrary.arbitrary[Char].map(_.toString -> refs)
+      case Group(inner, rest) =>
+        refs =>
+          for {
+            (x , newRefs)    <- app(inner).apply(refs)
+            (xs, newNewRefs) <- rest
+              .map(z => app(z).apply(newRefs + (newRefs.keys.size -> x)))
+              .getOrElse(Gen.const("", newRefs))
+          } yield (x + xs, newNewRefs)
       case NonCapturingGroup(inner) =>
-        apply(inner)
+        app(inner)
       case Or(left, right) =>
-        Gen.oneOf(apply(left), apply(right))
+        refs =>
+          for {
+            l <- app(left).apply(refs)
+            r <- app(right).apply(refs)
+            x <- Gen.oneOf(l -> refs, r -> refs)
+          } yield x._1
       case And(left, right) =>
-        for {
-          l <- apply(left)
-          r <- apply(right)
-        } yield l + r
+        refs =>
+          for {
+            (l, newRefs) <- app(left).apply(refs)
+            (r, newRefs2) <- app(right).apply(refs)
+          } yield (l + r, newRefs ++ newRefs2)
       case Optional(inner) =>
-        optional(apply(inner))
+        refs =>
+          app(inner).apply(refs).flatMap {
+            case (a, newRefs) =>
+              Gen.oneOf(
+                a  -> newRefs,
+                "" -> newRefs
+              )
+          }
       case OneOrMore(inner) =>
-        Gen.nonEmptyListOf(apply(inner)).map(_.mkString(""))
+        refs =>
+          app(inner).apply(refs).flatMap {
+            case (a, newRefs) =>
+              Gen.nonEmptyListOf(a).map(_.mkString("") -> newRefs)
+          }
       case ZeroOrMore(inner) =>
-        Gen.listOf(apply(inner)).map(_.mkString(""))
+        refs =>
+          app(inner).apply(refs).flatMap {
+            case (a, newRefs) =>
+              Gen.listOf(a).map(_.mkString("") -> newRefs)
+          }
       case RangeFrom(inner, min) =>
-        // configurable defaults
-        for {
-          length <- Gen.choose(min, 100)
-          list <- Gen.listOfN(length, apply(inner))
-        } yield list.mkString("")
+        refs =>
+          for {
+            length <- Gen.choose(min, 100)
+            list <- Gen.listOfN(length, app(inner).apply(refs))
+          } yield list.map(_._1).mkString("") -> refs
       case Range(inner, min, max) =>
-        for {
-          length <- Gen.choose(min, max)
-          list <- Gen.listOfN(length, apply(inner))
-        } yield list.mkString("")
+        refs =>
+          for {
+            length <- Gen.choose(min, max)
+            list <- Gen.listOfN(length, app(inner).apply(refs))
+          } yield list.map(_._1).mkString("") -> refs
       case Length(inner, length) =>
-        Gen.listOfN(length, apply(inner)).map(_.mkString(""))
+        refs =>
+          for {
+            list <- Gen.listOfN(length, app(inner).apply(refs))
+          } yield list.map(_._1).mkString("") -> refs
       case CharacterClass(terms@_*) =>
-        processClass(terms)
+        refs =>
+          processClass(terms).map(_ -> refs)
       case term: Negated =>
-        negated(term)
-      case term: Substitution =>
-        sys.error("backreferences are not supported")
+        refs =>
+          negated(term).map(_ -> refs)
+      case Substitution(ref) =>
+        refs =>
+          Gen.const(refs.apply(ref)).map(_ -> refs)
       case WordBoundary | BOS | EOS =>
-        Gen.const("")
+        refs =>
+          Gen.const("").map(_ -> refs)
     }
   }
 
@@ -143,7 +186,4 @@ object ASTProcessor {
 
   private def literal(str: String): Gen[String] =
     Gen.const(str)
-
-  private def optional(inner: Gen[String]): Gen[String] =
-    Gen.frequency(1 -> inner, 1 -> Gen.const(""))
 }
