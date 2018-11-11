@@ -2,148 +2,116 @@ package wolfendale.scalacheck.regexp
 
 import org.scalacheck.{Arbitrary, Gen}
 import ast._
+import wolfendale.scalacheck.regexp.data.Group.{Exclusion, Inclusion}
 
 object ASTProcessor {
 
-  // TODO negation which doesn't use `suchThat`?
-  private def negated(re: Negated)(implicit ev: Arbitrary[Char]): Gen[String] = {
-
-    val arbitraryString: Gen[String] =
-      Arbitrary.arbitrary[Char].map(_.toString)
-
-    def termToString(term: CharacterClass.Term): String = {
-      term match {
-        case CharacterClass.Literal(str) =>
-          str
-        case CharacterClass.CharRange(min, max) =>
-          s"$min-$max"
-        case CharacterClass.DigitRange(min, max) =>
-          s"$min-$max"
-        case CharacterClass.DigitChar =>
-          "\\d"
-        case CharacterClass.WordChar =>
-          "\\w"
-        case CharacterClass.SpaceChar =>
-          "\\s"
-        case _ =>
-          ""
-      }
-    }
-
-    re match {
-      case Negated(WordChar) =>
-        arbitraryString.suchThat(_.matches("\\W"))
-      case Negated(DigitChar) =>
-        arbitraryString.suchThat(_.matches("\\D"))
-      case Negated(SpaceChar) =>
-        arbitraryString.suchThat(_.matches("\\S"))
-      case Negated(WordBoundary) =>
-        Gen.const("")
-      case Negated(CharacterClass(terms @ _*)) =>
-        arbitraryString.suchThat(_.matches(s"[^${terms.map(termToString).mkString("")}]"))
-        // TODO fix AST so that this isn't a valid construction
-      case _ =>
-        sys.error("invalid negated term")
-    }
-  }
-
-  // TODO tailrec optimisation
-  def apply(re: RegularExpression)(implicit ev: Arbitrary[Char]): Gen[String] = {
-
-    re match {
-      case Literal(str) =>
-        literal(str)
-      case WordChar =>
-        wordChar
-      case SpaceChar =>
-        spaceChar
-      case DigitChar =>
-        digitChar
-      case AnyChar =>
-        Arbitrary.arbitrary[Char].map(_.toString)
-      case Group(inner) =>
-        apply(inner)
-      case NonCapturingGroup(inner) =>
-        apply(inner)
+  def apply(expression: RegularExpression)(implicit ev: Arbitrary[Char]): Gen[String] = {
+    expression match {
+      case Literal(value) =>
+        Gen.const(value.toString)
+      case Group(term, rest, _) =>
+        for {
+          termGen <- apply(term)
+          restGen <- rest.map(apply)
+            .getOrElse(Gen.const(""))
+        } yield termGen + restGen
       case Or(left, right) =>
         Gen.oneOf(apply(left), apply(right))
       case And(left, right) =>
         for {
-          l <- apply(left)
-          r <- apply(right)
-        } yield l + r
-      case Optional(inner) =>
-        optional(apply(inner))
-      case OneOrMore(inner) =>
-        Gen.nonEmptyListOf(apply(inner)).map(_.mkString(""))
-      case ZeroOrMore(inner) =>
-        Gen.listOf(apply(inner)).map(_.mkString(""))
-      case RangeFrom(inner, min) =>
-        // configurable defaults
+          leftGen  <- apply(left)
+          rightGen <- apply(right)
+        } yield leftGen + rightGen
+      case _: Meta =>
+        Gen.const("")
+      case expression: Quantified =>
+        quantified(expression)
+      case expression: CharacterClass.Group.Term =>
+        characterClass(expression)
+          .map(_.toString)
+      case expression =>
+        sys.error(s"Unsupported syntax! $expression")
+    }
+  }
+
+  private def quantified(expression: Quantified)(implicit ev: Arbitrary[Char]): Gen[String] = {
+    expression match {
+      case Optional(term) =>
+        Gen.option(apply(term))
+          .map(_.getOrElse(""))
+      case ZeroOrMore(term) =>
+        Gen.listOf(apply(term))
+          .map(_.mkString)
+      case OneOrMore(term) =>
         for {
-          length <- Gen.choose(min, 100)
-          list <- Gen.listOfN(length, apply(inner))
-        } yield list.mkString("")
-      case Range(inner, min, max) =>
+          num  <- Gen.chooseNum(1, 100)
+          list <- Gen.listOfN(num, apply(term))
+        } yield list.mkString
+      case Length(term, length) =>
+        Gen.listOfN(length, apply(term))
+          .map(_.mkString)
+      case RangeFrom(term, min) =>
         for {
-          length <- Gen.choose(min, max)
-          list <- Gen.listOfN(length, apply(inner))
-        } yield list.mkString("")
-      case Length(inner, length) =>
-        Gen.listOfN(length, apply(inner)).map(_.mkString(""))
-      case CharacterClass(terms@_*) =>
-        processClass(terms)
-      case term: Negated =>
-        negated(term)
-      case term: Substitution =>
-        sys.error("backreferences are not supported")
-      case WordBoundary | BOS | EOS =>
-        Gen.const("")
+          num  <- Gen.chooseNum(min, 100)
+          list <- Gen.listOfN(num, apply(term))
+        } yield list.mkString
+      case Range(term, min, max) =>
+        for {
+          num  <- Gen.chooseNum(min, max)
+          list <- Gen.listOfN(num, apply(term))
+        } yield list.mkString
     }
   }
 
-  private def processClass(terms: Seq[CharacterClass.Term]): Gen[String] = {
+  private def characterClass(expression: CharacterClass.Group.Term)(implicit ev: Arbitrary[Char]): Gen[Char] = {
 
-    val gens = terms.toList.map {
-      case CharacterClass.Literal(str) =>
-        literal(str)
-      case CharacterClass.DigitRange(min, max) =>
-        Gen.choose(min, max).map(_.toString)
-      case CharacterClass.CharRange(min, max) =>
-        Gen.choose(min, max).map(_.toString)
-      case CharacterClass.WordChar =>
-        wordChar
-      case CharacterClass.SpaceChar =>
-        spaceChar
-      case CharacterClass.DigitChar =>
-        digitChar
-      case _ =>
-        Gen.const("")
+    import CharacterClass._
+
+    val digits: data.Group[Char]     = Inclusion((48.toChar to 57.toChar).toSet)
+    val spaces: data.Group[Char]     = Inclusion(Set(' ', '\t', '\r', '\n'))
+    val alphaUpper: data.Group[Char] = Inclusion((65.toChar to 90.toChar).toSet)
+    val alphaLower: data.Group[Char] = Inclusion((97.toChar to 122.toChar).toSet)
+    val alpha: data.Group[Char]      = alphaUpper ++ alphaLower
+    val alphaNum: data.Group[Char]   = alpha ++ digits
+    val word: data.Group[Char]       = alphaNum ++ Inclusion(Set('_')) //, '-'))
+    val any: data.Group[Char]        = Exclusion(Set.empty)
+
+    def toGroup(expression: CharacterClass.Group.Term): data.Group[Char] = {
+      expression match {
+        case CharacterClass.Literal(value) =>
+          Inclusion(Set(value))
+        case CharacterClass.Group(values @ _*) =>
+          values.map(toGroup).foldLeft[data.Group[Char]](Inclusion(Set.empty)) {
+            _ ++ _
+          }
+        case CharacterClass.Range(min, max) =>
+          Inclusion((min to max).toSet)
+        case Word =>
+          word
+        case Digit =>
+          digits
+        case Space =>
+          spaces
+        case Any =>
+          any
+        case Negated(characterClass) =>
+          toGroup(characterClass).compliment
+        case expression =>
+          sys.error(s"Unsupported syntax! $expression")
+      }
     }
 
-    gens match {
-      case a :: Nil => a
-      case a :: b :: xs =>
-        Gen.oneOf(a, b, xs: _*)
-      case _ =>
-        Gen.const("")
+    def toGen(group: data.Group[Char]): Gen[Char] = {
+      group match {
+        case Inclusion(values) =>
+          Gen.oneOf(values.toSeq)
+        case Exclusion(values) =>
+          Arbitrary.arbitrary[Char]
+            .suchThat(!values.contains(_))
+      }
     }
+
+    toGen(toGroup(expression))
   }
-
-  private val wordChar: Gen[String] =
-    Gen.oneOf(Gen.alphaNumChar, Gen.const('_')).map(_.toString)
-
-  private val spaceChar: Gen[String] = {
-    // should this contain other characters?
-    Gen.oneOf(" ", "\t")
-  }
-
-  private val digitChar: Gen[String] =
-    Gen.numChar.map(_.toString)
-
-  private def literal(str: String): Gen[String] =
-    Gen.const(str)
-
-  private def optional(inner: Gen[String]): Gen[String] =
-    Gen.frequency(1 -> inner, 1 -> Gen.const(""))
 }

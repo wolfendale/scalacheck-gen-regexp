@@ -1,56 +1,49 @@
 package wolfendale.scalacheck.regexp.ast
 
-sealed trait RegularExpression {
+sealed trait RegularExpression
 
-  def |(that: RegularExpression): RegularExpression =
-    Or(this, that)
+sealed trait Term extends RegularExpression
 
-  def &(that: RegularExpression): RegularExpression =
-    And(this, that)
-}
+final case class Literal(value: Char) extends Term
 
-case class Literal(value: String) extends RegularExpression
+sealed trait Meta extends Term
+case object Start extends Meta
+case object End extends Meta
+case object WordBoundary extends Meta
+case object NegatedWordBoundary extends Meta
 
-case object WordChar extends RegularExpression
-case object DigitChar extends RegularExpression
-case object SpaceChar extends RegularExpression
-case object AnyChar extends RegularExpression
+final case class Group(term: RegularExpression, rest: Option[RegularExpression] = None, capturing: Boolean = true) extends Term
+final case class Substitution(index: Int) extends Term
+final case class Or(left: RegularExpression, right: Term) extends Term
+final case class And(left: RegularExpression, right: Term) extends Term
 
-case object BOS extends RegularExpression
-case object EOS extends RegularExpression
-case object WordBoundary extends RegularExpression
-
-case class Group(term: RegularExpression) extends RegularExpression
-case class Substitution(index: Int) extends RegularExpression
-case class NonCapturingGroup(term: RegularExpression) extends RegularExpression
-
-case class Or(t1: RegularExpression, t2: RegularExpression) extends RegularExpression
-case class And(t1: RegularExpression, t2: RegularExpression) extends RegularExpression
-
-case class Negated(term: RegularExpression) extends RegularExpression
-
-sealed trait Quantified extends RegularExpression
-case class Optional(term: RegularExpression) extends Quantified
-case class ZeroOrMore(term: RegularExpression) extends Quantified
-case class OneOrMore(term: RegularExpression) extends Quantified
-case class Length(term: RegularExpression, min: Int) extends Quantified
-case class RangeFrom(term: RegularExpression, min: Int) extends Quantified
-case class Range(term: RegularExpression, min: Int, max: Int) extends Quantified
+sealed trait Quantified extends Term
+case class Optional(term: Term) extends Quantified
+case class ZeroOrMore(term: Term) extends Quantified
+case class OneOrMore(term: Term) extends Quantified
+case class Length(term: Term, length: Int) extends Quantified
+case class RangeFrom(term: Term, min: Int) extends Quantified
+case class Range(term: Term, min: Int, max: Int) extends Quantified
 
 object CharacterClass {
 
-  sealed trait Term
+  final case class Literal(value: Char) extends Group.Term
+  case object Word extends CharacterClass with Term
+  case object Digit extends CharacterClass with Term
+  case object Space extends CharacterClass with Term
+  case object Any extends CharacterClass with Term
+  final case class Negated(characterClass: CharacterClass) extends CharacterClass with Term
+  final case class Intersection(left: Group.Term, right: Group.Term) extends CharacterClass
 
-  case class Literal(value: String) extends Term
+  final case class Group(terms: Group.Term*) extends CharacterClass with Term
 
-  case class DigitRange(min: Int, max: Int) extends Term
-  case class CharRange(min: Char, max: Char) extends Term
+  object Group {
+    sealed trait Term extends RegularExpression
+  }
 
-  case object WordChar extends Term
-  case object DigitChar extends Term
-  case object SpaceChar extends Term
-  case object WordBoundary extends Term
+  final case class Range(min: Char, max: Char) extends CharacterClass {
+    require(min <= max)
+  }
 }
 
-case class CharacterClass(terms: CharacterClass.Term*) extends RegularExpression
-
+sealed trait CharacterClass extends CharacterClass.Group.Term
