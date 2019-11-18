@@ -7,12 +7,12 @@ lazy val root = (project in file("."))
     homepage := Some(url("https://github.com/wolfendale/scalacheck-gen-regexp")),
     bintrayVcsUrl := Some("https://github.com/wolfendale/scalacheck-gen-regexp"),
     version := "0.1.1",
-    crossScalaVersions := Seq("2.11.12", "2.12.4"),
+    crossScalaVersions := Seq("2.11.12", "2.12.10", "2.13.1"),
     libraryDependencies ++= Seq(
-      "org.scalacheck" %% "scalacheck" % "1.13.5" % "provided",
-      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.0.6",
-      "org.scalactic" %% "scalactic" % "3.0.4" % "test",
-      "org.scalatest" %% "scalatest" % "3.0.4" % "test"
+      "org.scalacheck" %% "scalacheck" % "1.14.2" % "provided",
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
+      "org.scalactic" %% "scalactic" % "3.0.8" % "test",
+      "org.scalatest" %% "scalatest" % "3.0.8" % "test"
     )
   )
 

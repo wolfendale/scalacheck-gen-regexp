@@ -6,7 +6,7 @@
 
 A library for creating [scalacheck](https://www.scalacheck.org/) generators from regular expressions
 
-Cross-built for Scala 2.11/2.12
+Cross-built for Scala 2.11/2.12/2.13
 
 ##### Installation
 
