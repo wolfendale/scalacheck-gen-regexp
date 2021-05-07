@@ -8,151 +8,203 @@ object GenParser extends RegexParsers with PackratParsers {
 
   override def skipWhitespace: Boolean = false
 
-  lazy val expression0: PackratParser[RegularExpression] = group | characterClass | term
+  private lazy val int: Parser[Int] = {
+    "\\d+".r ^^ { _.toInt }
+  }
 
-  lazy val expression1: PackratParser[RegularExpression] = {
+  private lazy val any: Parser[String] = ".".r
 
-    val int: Parser[Int] = "\\d+".r ^^ { _.toInt }
+  private lazy val literalTerm: Parser[Literal] = {
 
-    // annoyingly hacky :( and it potentially breaks associativity but it's
-    // nicer than having a concat rule for our purposes
-    def splitLiteral(re: RegularExpression, result: RegularExpression => RegularExpression): RegularExpression = {
-      re match {
-        case Literal(s) if s.length > 1 =>
-          And(Literal(s.init), result(Literal(s.last.toString)))
-        case other =>
-          result(other)
+    val meta: Parser[String] =
+      "\\w" | "\\d" | "\\s" | "\\W" | "\\D" | "\\S" |
+      ")" | "(" | "$" | "[" | "." | "+" | "*" | "?" | "|" | "\\" | "{"
+
+    val escaped: Parser[String] =
+      "\\" ~> meta
+
+    val allowed: Parser[String] =
+      not(meta) ~> any
+
+    (escaped | allowed) ^^ {
+      str =>
+        Literal(str.last)
+    }
+  }
+
+  private lazy val characterClass: Parser[CharacterClass with Term] = {
+
+    lazy val insideCharacterClass: Parser[CharacterClass.Group.Term] = {
+
+      val allowed: Parser[String] =
+        not("]" | "\\") ~> any
+
+      val literalTerm: Parser[CharacterClass.Literal] = {
+
+        val meta: Parser[String] =
+          "\\w" | "\\d" | "\\s" | "\\W" | "\\D" | "\\S"
+
+        val escaped: Parser[String] =
+          "\\" ~> (meta | any)
+
+        (escaped | allowed) ^^ {
+          str =>
+            CharacterClass.Literal(str.last)
+        }
       }
-    }
 
-    // quantifiers
-    val optional   = expression0 <~ "?" ^^ { splitLiteral(_, Optional) }
-    val oneOrMore  = expression0 <~ "+" ^^ { splitLiteral(_, OneOrMore) }
-    val zeroOrMore = expression0 <~ "*" ^^ { splitLiteral(_, ZeroOrMore) }
+      val range: Parser[CharacterClass.Range] =  {
 
-    val rangeFrom = expression0 ~ ("{" ~> int <~ ",}") ^^ {
-      case expr ~ min =>
-        splitLiteral(expr, RangeFrom(_, min))
-    }
-
-    val range = expression0 ~ ("{" ~> int ~ ("," ~> int <~ "}")) ^^ {
-      case expr ~ (min ~ max) =>
-        splitLiteral(expr, Range(_, min, max))
-    }
-
-    val length = expression0 ~ ("{" ~> int <~ "}") ^^ {
-      case expr ~ l =>
-        splitLiteral(expr, Length(_, l))
-    }
-
-    optional | oneOrMore | zeroOrMore | rangeFrom | range | length | expression0
-  }
-
-  // and
-  lazy val expression2: PackratParser[RegularExpression] =
-    (expression2 ~ expression1) ^^ { case a ~ b => And(a, b) } | expression1
-
-  // or
-  lazy val expression: PackratParser[RegularExpression] =
-    (expression ~ ("|" ~> expression2) ^^ { case a ~ b => Or(a, b) }) | expression2
-
-  lazy val group: PackratParser[RegularExpression] = {
-
-    lazy val nonCapturingGroup = "(?:" ~> expression <~ ")" ^^ NonCapturingGroup
-    lazy val capturingGroup    = "(" ~> expression <~ ")" ^^ Group
-
-    capturingGroup | nonCapturingGroup
-  }
-
-
-  // character classes
-  lazy val characterClass: PackratParser[RegularExpression] = {
-
-    lazy val digitRange: Parser[CharacterClass.Term] = {
-      val d: Parser[Int] = "\\d".r ^^ { _.toInt }
-      (d ~ ("-" ~> d)) ^^ {
-        case min ~ max =>
-          CharacterClass.DigitRange(min, max)
+        any ~ ("-" ~> allowed) ^^ {
+          case min ~ max =>
+            CharacterClass.Range(min.last, max.last)
+        }
       }
-    }
 
-    lazy val lowerAlphaRange: Parser[CharacterClass.Term] = {
-      val c = "[a-z]".r ^^ { _.apply(0) }
-      c ~ ("-" ~> c) ^^ {
-        case min ~ max =>
-          CharacterClass.CharRange(min, max)
+      lazy val intersection: PackratParser[CharacterClass.Intersection] = {
+
+        val separator: Parser[String] = "&&"
+
+        insideCharacterClass ~ (separator ~> insideCharacterClass) ^^ {
+          case one ~ two =>
+            CharacterClass.Intersection(one, two)
+        }
       }
+
+      intersection | characterClass | range | literalTerm
     }
 
-    lazy val upperAlphaRange: Parser[CharacterClass.Term] = {
-      val c = "[A-Z]".r ^^ { _.apply(0) }
-      c ~ ("-" ~> c) ^^ {
-        case min ~ max =>
-          CharacterClass.CharRange(min, max)
+    lazy val inclusive: Parser[CharacterClass with Term] = {
+
+      lazy val group: Parser[CharacterClass.Group] = {
+
+        '[' ~> insideCharacterClass.* <~ ']' ^^ {
+          classes =>
+            CharacterClass.Group(classes: _*)
+        }
       }
+
+      val word: Parser[CharacterClass.Word.type] =
+        "\\w" ^^^ { CharacterClass.Word }
+      val digit: Parser[CharacterClass.Digit.type] =
+        "\\d" ^^^ { CharacterClass.Digit }
+      val space: Parser[CharacterClass.Space.type] =
+        "\\s" ^^^ { CharacterClass.Space }
+      val any: Parser[CharacterClass.Any.type] =
+        '.'   ^^^ { CharacterClass.Any }
+
+      group | word | digit | space | any
     }
 
-    val word: Parser[CharacterClass.Term]         = "\\w" ^^^ CharacterClass.WordChar
-    val digit: Parser[CharacterClass.Term]        = "\\d" ^^^ CharacterClass.DigitChar
-    val space: Parser[CharacterClass.Term]        = "\\s" ^^^ CharacterClass.SpaceChar
-    val wordBoundary: Parser[CharacterClass.Term] = "\\b" ^^^ CharacterClass.WordBoundary
+    lazy val exclusive: Parser[CharacterClass.Negated] = {
 
-    lazy val char: Parser[CharacterClass.Term] = {
-      val normalChars = "[^\\]\\\\]".r
-      val meta = "\\" | "]" | "-"
-      (("\\" ~> meta) | normalChars | "\\" ~> normalChars) ^^ CharacterClass.Literal
+      lazy val negatedGroup =
+        "[^" ~> insideCharacterClass.* <~ ']' ^^ {
+          classes =>
+            CharacterClass.Negated(CharacterClass.Group(classes: _*))
+        }
+
+      val negatedWord =
+        "\\W" ^^^ { CharacterClass.Negated(CharacterClass.Word) }
+      val negatedDigit =
+        "\\D" ^^^ { CharacterClass.Negated(CharacterClass.Digit) }
+      val negatedSpace =
+        "\\S" ^^^ { CharacterClass.Negated(CharacterClass.Space) }
+
+      negatedGroup | negatedWord | negatedSpace | negatedDigit
     }
 
-    lazy val characterClassTerm: Parser[CharacterClass.Term] =
-      word | digit | space | wordBoundary | digitRange | lowerAlphaRange | upperAlphaRange | char
-
-    lazy val charClass =
-      ("[" ~> characterClassTerm.+ <~ "]") ^^ { CharacterClass(_: _*) }
-    lazy val negatedCharClass =
-      ("[^" ~> characterClassTerm.+ <~ "]") ^^ { terms => Negated(CharacterClass(terms: _*)) }
-
-    negatedCharClass | charClass
+    exclusive | inclusive
   }
 
-  // terminals...
-  lazy val term: PackratParser[RegularExpression] = char | classes | negClasses | substitution
+  private lazy val meta: Parser[Meta] = {
 
-  // default classes
-  lazy val word: Parser[RegularExpression]         = "\\w" ^^^ WordChar
-  lazy val digit: Parser[RegularExpression]        = "\\d" ^^^ DigitChar
-  lazy val space: Parser[RegularExpression]        = "\\s" ^^^ SpaceChar
-  lazy val any: Parser[RegularExpression]          = "."   ^^^ AnyChar
-  lazy val wordBoundary: Parser[RegularExpression] = "\\b" ^^^ WordBoundary
-  lazy val classes: Parser[RegularExpression]      = word | digit | space | any | wordBoundary
+    val start: Parser[Start.type] =
+      '^' ^^^ { Start }
 
-  lazy val negWord: Parser[RegularExpression]      = "\\W" ^^^ Negated(WordChar)
-  lazy val negDigit: Parser[RegularExpression]     = "\\D" ^^^ Negated(DigitChar)
-  lazy val negSpace: Parser[RegularExpression]     = "\\S" ^^^ Negated(SpaceChar)
-  lazy val negBoundary: Parser[RegularExpression]  = "\\B" ^^^ Negated(WordBoundary)
-  lazy val negClasses: Parser[RegularExpression]   = negWord | negDigit | negSpace | negBoundary
+    val end: Parser[End.type] =
+      '$' ^^^ { End }
 
-  lazy val substitution: Parser[RegularExpression] = "\\" ~> "[1-9]\\d*".r  ^^ {
-    index =>
-      Substitution(index.toInt)
+    val wordBoundary: Parser[WordBoundary.type] =
+      "\\b" ^^^ { WordBoundary }
+
+    val negatedWordBoundary: Parser[NegatedWordBoundary.type] =
+      "\\B" ^^^ { NegatedWordBoundary }
+
+    start | end | wordBoundary | negatedWordBoundary
   }
 
-  lazy val bos: Parser[RegularExpression] = "^" ^^^ BOS
-  lazy val eos: Parser[RegularExpression] = "$" ^^^ EOS
+  private lazy val substitution: Parser[Substitution] =
+    '\\' ~> int ^^ { Substitution.apply }
 
-  lazy val regularExpression: Parser[RegularExpression] = {
-    bos ~> expression <~ eos ^^ { expr => And(And(BOS, expr), EOS) } |
-    bos ~> expression        ^^ { expr => And(BOS, expr) } |
-    expression <~ eos        ^^ { expr => And(expr, EOS) } |
-    expression
+  private lazy val quantified: PackratParser[Quantified] = {
+
+    val optional: Parser[Optional] =
+      (term <~ '?') ^^ { Optional.apply }
+
+    val zeroOrMore: Parser[ZeroOrMore] =
+      (term <~ '*') ^^ { ZeroOrMore.apply }
+
+    val oneOrMore: Parser[OneOrMore] =
+      (term <~ '+') ^^ { OneOrMore.apply }
+
+    val length: Parser[Length] =
+      (term ~ ('{' ~> int <~ '}')) ^^ {
+        case t ~ l =>
+          Length(t, l)
+      }
+
+    val rangeFrom: Parser[RangeFrom] =
+      (term ~ ('{' ~> int <~ ",}")) ^^ {
+        case t ~ min =>
+          RangeFrom(t, min)
+      }
+
+    val range: Parser[Range] =
+      (term ~ ('{' ~> int ~ (',' ~> int <~ '}'))) ^^ {
+        case t ~ (min ~ max) =>
+          Range(t, min, max)
+      }
+
+    optional | zeroOrMore | oneOrMore | length | rangeFrom | range
   }
 
-  // literals
-  lazy val char: PackratParser[Literal] = {
-    val meta: Parser[String] = ")" | "(" | "$" | "[" | "." | "+" | "*" | "?" | "|" | "\\" | "{"
-    (("\\" ~> meta) | "[^|)(.+*?{\\[$\\\\]".r).+ ^^ { strs => Literal(strs.mkString("")) }
+  private lazy val group: Parser[Group] = {
+
+    lazy val nonCapturingGroup: Parser[Group] =
+      ("(?:" ~> regularExpression <~ ')') ~ regularExpression.?  ^^ {
+        case inner ~ rest =>
+          Group(inner, rest, capturing = false)
+      }
+
+    lazy val capturingGroup: Parser[Group] =
+      ('(' ~> regularExpression <~ ')') ~ regularExpression.? ^^ {
+        case inner ~ rest =>
+          Group(inner, rest)
+      }
+
+    nonCapturingGroup | capturingGroup
   }
 
-  def parse(string: String): RegularExpression = {
+  private lazy val term: PackratParser[Term] = {
+    quantified | group | characterClass | meta | substitution | literalTerm
+  }
+
+  private lazy val regularExpression: PackratParser[RegularExpression] = {
+
+    lazy val or: Parser[Or] =
+      (regularExpression ~ ('|' ~> term)) ^^ {
+        case left ~ right => Or(left, right)
+      }
+
+    lazy val and: Parser[And] =
+      (regularExpression ~ term) ^^ {
+        case left ~ right => And(left, right)
+      }
+
+    and | or | term
+  }
+
+  def parse(string: String): RegularExpression =
     regularExpression(new PackratReader(new CharSequenceReader(string))).get
-  }
 }

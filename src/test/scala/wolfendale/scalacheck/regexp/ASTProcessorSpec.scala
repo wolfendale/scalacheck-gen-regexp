@@ -1,19 +1,19 @@
 package wolfendale.scalacheck.regexp
 
-import org.scalacheck.Gen
+import org.scalacheck.{Gen, Shrink}
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{MustMatchers, WordSpec}
 import ast._
 
 class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
 
+  implicit def noShrink[A]: Shrink[A] = Shrink.shrinkAny
+
   ".apply" must {
 
     "generate a literal char" in {
 
-      val strGen: Gen[String] = Gen.alphaNumChar.map(_.toString)
-
-      forAll(strGen) {
+      forAll(Gen.alphaNumChar) {
         literal =>
 
           val gen: Gen[String] =
@@ -21,7 +21,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
 
           forAll(gen) {
             str =>
-              str must fullyMatch regex literal
+              str must fullyMatch regex literal.toString
           }
       }
     }
@@ -29,7 +29,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a word char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(WordChar)
+        ASTProcessor.apply(CharacterClass.Word)
 
       forAll(gen) {
         str =>
@@ -40,7 +40,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a digit char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(DigitChar)
+        ASTProcessor.apply(CharacterClass.Digit)
 
       forAll(gen) {
         str =>
@@ -51,7 +51,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a space char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(SpaceChar)
+        ASTProcessor.apply(CharacterClass.Space)
 
       forAll(gen) {
         str =>
@@ -63,7 +63,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate any char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(AnyChar)
+        ASTProcessor.apply(CharacterClass.Any)
 
       forAll(gen) {
         str =>
@@ -73,9 +73,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
 
     "generate something within a group" in {
 
-      val strGen: Gen[String] = Gen.alphaNumChar.map(_.toString)
-
-      forAll(strGen) {
+      forAll(Gen.alphaNumChar) {
         literal =>
 
           val gen: Gen[String] =
@@ -83,24 +81,22 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
 
           forAll(gen) {
             str =>
-              str must fullyMatch regex literal
+              str must fullyMatch regex s"($literal)"
           }
       }
     }
 
     "generate something within a non capturing group" in {
 
-      val strGen: Gen[String] = Gen.alphaNumChar.map(_.toString)
-
-      forAll(strGen) {
+      forAll(Gen.alphaNumChar) {
         literal =>
 
           val gen: Gen[String] =
-            ASTProcessor.apply(NonCapturingGroup(Literal(literal)))
+            ASTProcessor.apply(Group(Literal(literal), capturing = false))
 
           forAll(gen) {
             str =>
-              str must fullyMatch regex literal
+              str must fullyMatch regex s"(?:$literal)"
           }
       }
     }
@@ -108,7 +104,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate something from an alternation" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(Or(Literal("a"), Literal("b")))
+        ASTProcessor.apply(Or(Literal('a'), Literal('b')))
 
       forAll(gen) {
         str =>
@@ -119,7 +115,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate multiple terms" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(And(WordChar, DigitChar))
+        ASTProcessor.apply(And(CharacterClass.Word, CharacterClass.Digit))
 
       forAll(gen) {
         str =>
@@ -131,7 +127,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate an optional term" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(Optional(WordChar))
+        ASTProcessor.apply(Optional(CharacterClass.Word))
 
       forAll(gen) {
         str =>
@@ -143,7 +139,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate one or more of a term" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(OneOrMore(WordChar))
+        ASTProcessor.apply(OneOrMore(CharacterClass.Word))
 
       forAll(gen) {
         str =>
@@ -155,7 +151,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate zero or more of a term" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(ZeroOrMore(WordChar))
+        ASTProcessor.apply(ZeroOrMore(CharacterClass.Word))
 
       forAll(gen) {
         str =>
@@ -166,7 +162,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a range of terms" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(Range(WordChar, 3, 33))
+        ASTProcessor.apply(Range(CharacterClass.Word, 3, 33))
 
       forAll(gen) {
         str =>
@@ -177,7 +173,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a range of terms with no max" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(RangeFrom(WordChar, 3))
+        ASTProcessor.apply(RangeFrom(CharacterClass.Word, 3))
 
       forAll(gen) {
         str =>
@@ -188,7 +184,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a specific number of terms" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(Length(WordChar, 33))
+        ASTProcessor.apply(Length(CharacterClass.Word, 33))
 
       forAll(gen) {
         str =>
@@ -199,7 +195,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a negated word char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(Negated(WordChar))
+        ASTProcessor.apply(CharacterClass.Negated(CharacterClass.Word))
 
       forAll(gen) {
         str =>
@@ -210,7 +206,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a negated space char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(Negated(SpaceChar))
+        ASTProcessor.apply(CharacterClass.Negated(CharacterClass.Space))
 
       forAll(gen) {
         str =>
@@ -221,7 +217,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a negated digit char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(Negated(DigitChar))
+        ASTProcessor.apply(CharacterClass.Negated(CharacterClass.Digit))
 
       forAll(gen) {
         str =>
@@ -229,10 +225,10 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
       }
     }
 
-    "generate an empty string for BOS anchor" in {
+    "generate an empty string for beginning of string anchor" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(BOS)
+        ASTProcessor.apply(Start)
 
       forAll(gen) {
         str =>
@@ -240,10 +236,10 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
       }
     }
 
-    "generate an empty string for EOS anchor" in {
+    "generate an empty string for end of string anchor" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(EOS)
+        ASTProcessor.apply(End)
 
       forAll(gen) {
         str =>
@@ -264,17 +260,15 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
 
     "generate a character class with a literal" in {
 
-      val strGen: Gen[String] = Gen.alphaNumChar.map(_.toString)
-
-      forAll(strGen) {
+      forAll(Gen.alphaNumChar) {
         literal =>
 
           val gen: Gen[String] =
-            ASTProcessor.apply(CharacterClass(CharacterClass.Literal(literal)))
+            ASTProcessor.apply(CharacterClass.Group(CharacterClass.Literal(literal)))
 
           forAll(gen) {
             str =>
-              str must fullyMatch regex literal
+              str must fullyMatch regex s"[$literal]"
           }
       }
     }
@@ -282,7 +276,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a character class which behaves like an alternation" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(CharacterClass(CharacterClass.Literal("a"), CharacterClass.Literal("b")))
+        ASTProcessor.apply(CharacterClass.Group(CharacterClass.Literal('a'), CharacterClass.Literal('b')))
 
       forAll(gen) {
         str =>
@@ -294,7 +288,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a character class with a word char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(CharacterClass(CharacterClass.WordChar))
+        ASTProcessor.apply(CharacterClass.Group(CharacterClass.Word))
 
       forAll(gen) {
         str =>
@@ -306,7 +300,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a character class with a digit char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(CharacterClass(CharacterClass.DigitChar))
+        ASTProcessor.apply(CharacterClass.Group(CharacterClass.Digit))
 
       forAll(gen) {
         str =>
@@ -318,7 +312,7 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
     "generate a character class with a space char" in {
 
       val gen: Gen[String] =
-        ASTProcessor.apply(CharacterClass(CharacterClass.SpaceChar))
+        ASTProcessor.apply(CharacterClass.Group(CharacterClass.Space))
 
       forAll(gen) {
         str =>
@@ -327,47 +321,13 @@ class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
       }
     }
 
-    "generate a character class with a lowercase char range" in {
+    "generate a character class with a range" in {
 
       val genGen: Gen[(Char, Char, Gen[String])] =
         for {
-          min <- Gen.choose('a', 'z')
-          max <- Gen.choose(min, 'z')
-        } yield (min, max, ASTProcessor.apply(CharacterClass(CharacterClass.CharRange(min, max))))
-
-      forAll(genGen) {
-        case (min, max, gen) =>
-          forAll(gen) {
-            str =>
-              str must fullyMatch regex s"[$min-$max]"
-          }
-      }
-    }
-
-    "generate a character class with an uppercase char range" in {
-
-      val genGen: Gen[(Char, Char, Gen[String])] =
-        for {
-          min <- Gen.choose('A', 'Z')
-          max <- Gen.choose(min, 'Z')
-        } yield (min, max, ASTProcessor.apply(CharacterClass(CharacterClass.CharRange(min, max))))
-
-      forAll(genGen) {
-        case (min, max, gen) =>
-          forAll(gen) {
-            str =>
-              str must fullyMatch regex s"[$min-$max]"
-          }
-      }
-    }
-
-    "generate a character class with a digit range" in {
-
-      val genGen: Gen[(Int, Int, Gen[String])] =
-        for {
-          min <- Gen.choose(0, 9)
-          max <- Gen.choose(min, 9)
-        } yield (min, max, ASTProcessor.apply(CharacterClass(CharacterClass.DigitRange(min, max))))
+          min <- Gen.choose('0', '9')
+          max <- Gen.choose(min, '9')
+        } yield (min, max, ASTProcessor.apply(CharacterClass.Group(CharacterClass.Range(min, max))))
 
       forAll(genGen) {
         case (min, max, gen) =>
