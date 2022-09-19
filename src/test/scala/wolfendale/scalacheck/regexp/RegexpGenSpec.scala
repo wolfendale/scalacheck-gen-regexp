@@ -1,10 +1,11 @@
 package wolfendale.scalacheck.regexp
 
 import org.scalacheck.{Arbitrary, Gen, Shrink}
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{MustMatchers, WordSpec}
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
 
-class RegexpGenSpec extends WordSpec with MustMatchers with PropertyChecks {
+class RegexpGenSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
 
   implicit val arbChar: Arbitrary[Char] = Arbitrary(Gen.alphaNumChar)
   implicit val noShrinkString: Shrink[String] = Shrink.shrinkAny

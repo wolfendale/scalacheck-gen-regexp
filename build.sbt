@@ -10,13 +10,17 @@ lazy val root = (project in file("."))
     publishMavenStyle := true,
     publishTo := sonatypePublishToBundle.value,
     sonatypeCredentialHost := "s01.oss.sonatype.org",
-    version := "0.1.3",
-    crossScalaVersions := Seq("2.11.12", "2.12.10", "2.13.5"),
+    version := "1.0.0",
+    crossScalaVersions := Seq("2.12.16", "2.13.8", "3.1.0"),
+    scalacOptions ++= Seq(
+      "-Xfatal-warnings"
+    ),
     libraryDependencies ++= Seq(
-      "org.scalacheck" %% "scalacheck" % "1.14.2" % "provided",
-      "org.scala-lang.modules" %% "scala-parser-combinators" % "1.1.2",
-      "org.scalactic" %% "scalactic" % "3.0.8" % "test",
-      "org.scalatest" %% "scalatest" % "3.0.8" % "test"
+      "org.scalacheck" %% "scalacheck" % "1.17.0" % "provided",
+      "org.scala-lang.modules" %% "scala-parser-combinators" % "2.1.1",
+      "org.scalactic" %% "scalactic" % "3.2.13" % "test",
+      "org.scalatest" %% "scalatest" % "3.2.13" % "test",
+      "org.scalatestplus" %% "scalacheck-1-16" % "3.2.13.0" % "test"
     )
   )
 

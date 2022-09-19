@@ -1,11 +1,12 @@
 package wolfendale.scalacheck.regexp
 
 import org.scalacheck.Gen
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{MustMatchers, WordSpec}
-import ast._
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import wolfendale.scalacheck.regexp.ast._
 
-class ASTProcessorSpec extends WordSpec with MustMatchers with PropertyChecks {
+class ASTProcessorSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
 
   ".apply" must {
 
