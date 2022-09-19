@@ -26,9 +26,9 @@ object GenParser extends RegexParsers with PackratParsers {
     }
 
     // quantifiers
-    val optional   = expression0 <~ "?" ^^ { splitLiteral(_, Optional) }
-    val oneOrMore  = expression0 <~ "+" ^^ { splitLiteral(_, OneOrMore) }
-    val zeroOrMore = expression0 <~ "*" ^^ { splitLiteral(_, ZeroOrMore) }
+    val optional   = expression0 <~ "?" ^^ { splitLiteral(_, Optional.apply) }
+    val oneOrMore  = expression0 <~ "+" ^^ { splitLiteral(_, OneOrMore.apply) }
+    val zeroOrMore = expression0 <~ "*" ^^ { splitLiteral(_, ZeroOrMore.apply) }
 
     val rangeFrom = expression0 ~ ("{" ~> int <~ ",}") ^^ {
       case expr ~ min =>
@@ -58,8 +58,8 @@ object GenParser extends RegexParsers with PackratParsers {
 
   lazy val group: PackratParser[RegularExpression] = {
 
-    lazy val nonCapturingGroup = "(?:" ~> expression <~ ")" ^^ NonCapturingGroup
-    lazy val capturingGroup    = "(" ~> expression <~ ")" ^^ Group
+    lazy val nonCapturingGroup = "(?:" ~> expression <~ ")" ^^ NonCapturingGroup.apply
+    lazy val capturingGroup    = "(" ~> expression <~ ")" ^^ Group.apply
 
     capturingGroup | nonCapturingGroup
   }
@@ -77,7 +77,7 @@ object GenParser extends RegexParsers with PackratParsers {
     }
 
     lazy val lowerAlphaRange: Parser[CharacterClass.Term] = {
-      val c = "[a-z]".r ^^ { _.apply(0) }
+      val c = "[a-z]".r ^^ { _.charAt(0) }
       c ~ ("-" ~> c) ^^ {
         case min ~ max =>
           CharacterClass.CharRange(min, max)
@@ -85,7 +85,7 @@ object GenParser extends RegexParsers with PackratParsers {
     }
 
     lazy val upperAlphaRange: Parser[CharacterClass.Term] = {
-      val c = "[A-Z]".r ^^ { _.apply(0) }
+      val c = "[A-Z]".r ^^ { _.charAt(0) }
       c ~ ("-" ~> c) ^^ {
         case min ~ max =>
           CharacterClass.CharRange(min, max)
@@ -100,7 +100,7 @@ object GenParser extends RegexParsers with PackratParsers {
     lazy val char: Parser[CharacterClass.Term] = {
       val normalChars = "[^\\]\\\\]".r
       val meta = "\\" | "]" | "-"
-      (("\\" ~> meta) | normalChars | "\\" ~> normalChars) ^^ CharacterClass.Literal
+      (("\\" ~> meta) | normalChars | "\\" ~> normalChars) ^^ CharacterClass.Literal.apply
     }
 
     lazy val characterClassTerm: Parser[CharacterClass.Term] =

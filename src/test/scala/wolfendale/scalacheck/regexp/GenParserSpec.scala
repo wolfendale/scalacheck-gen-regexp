@@ -1,11 +1,12 @@
 package wolfendale.scalacheck.regexp
 
 import org.scalacheck.{Gen, Shrink}
-import org.scalatest.prop.PropertyChecks
-import org.scalatest.{MustMatchers, WordSpec}
-import ast._
+import org.scalatest.matchers.must.Matchers
+import org.scalatest.wordspec.AnyWordSpec
+import org.scalatestplus.scalacheck.ScalaCheckPropertyChecks
+import wolfendale.scalacheck.regexp.ast._
 
-class GenParserSpec extends WordSpec with MustMatchers with PropertyChecks {
+class GenParserSpec extends AnyWordSpec with Matchers with ScalaCheckPropertyChecks {
 
   implicit val noShrinkString: Shrink[String] = Shrink.shrinkAny
   implicit def noShrinkSeq[A]: Shrink[Seq[A]] = Shrink.shrinkAny
