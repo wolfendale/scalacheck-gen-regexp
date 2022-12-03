@@ -10,8 +10,8 @@ lazy val root = (project in file("."))
     publishMavenStyle := true,
     publishTo := sonatypePublishToBundle.value,
     sonatypeCredentialHost := "s01.oss.sonatype.org",
-    version := "1.0.0",
-    crossScalaVersions := Seq("2.12.16", "2.13.8", "3.1.0"),
+    version := "1.1.0",
+    crossScalaVersions := Seq("2.12.16", "2.13.8", "3.2.1"),
     scalacOptions ++= Seq(
       "-Xfatal-warnings"
     ),
